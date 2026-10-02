@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Micro WMS Móvil - Innovación Logística</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Google Fonts: Space Grotesk & Plus Jakarta Sans -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap">
+  <!-- JsBarcode para generar códigos de barra ficticios legibles -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <!-- Html5Qrcode para escaneo por cámara de smartphone -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Canvas Confetti para celebraciones de inventario -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0A1828',
+              navy: '#102238',
+              surface: '#152C4A',
+              border: '#1E3A5F',
+              accent: '#F27A18',
+              accentHover: '#D9650D',
+              lightBlue: '#A5C0DD',
+              success: '#10B981',
+              danger: '#EF4444',
+              warning: '#F59E0B'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Space Grotesk"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #07101B;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1E3A5F;
+      border-radius: 4px;
+    }
+    @keyframes scannerPulse {
+      0% { top: 10%; opacity: 0.8; }
+      50% { top: 90%; opacity: 1; }
+      100% { top: 10%; opacity: 0.8; }
+    }
+    .laser-line {
+      animation: scannerPulse 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex justify-center items-start min-h-screen">
+
+  <!-- ==================== PANTALLA DE INICIO DE SESIÓN (LOGIN MODAL / OVERLAY) ==================== -->
+  <div id="loginScreen" class="fixed inset-0 z-50 bg-brand-dark/95 backdrop-blur-md flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-brand-navy border border-brand-border rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+      <!-- Logotipo MWMS -->
+      <div class="flex justify-center">
+        <svg viewBox="0 0 160 140" class="w-16 h-14 drop-shadow">
+          <rect x="25" y="65" width="16" height="45" fill="#193D66"/>
+          <rect x="47" y="45" width="16" height="65" fill="#F27A18"/>
+          <rect x="69" y="25" width="16" height="85" fill="#193D66"/>
+          <path d="M10 85 C45 80, 85 45, 125 15" stroke="#F27A18" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <polygon points="120,5 145,15 130,38" fill="#F27A18"/>
+          <circle cx="50" cy="75" r="4" fill="#FFFFFF"/>
+          <circle cx="75" cy="58" r="4" fill="#FFFFFF"/>
+          <circle cx="100" cy="38" r="4" fill="#FFFFFF"/>
+          <text x="80" y="132" fill="#FFFFFF" font-size="22" font-weight="900" font-family="'Space Grotesk', sans-serif" text-anchor="middle">MWMS</text>
+        </svg>
+      </div>
+
+      <div>
+        <h2 class="text-lg font-extrabold text-white font-display">MICRO <span class="text-brand-accent">WMS</span> MÓVIL</h2>
+        <p class="text-[11px] text-brand-lightBlue">Control logístico y trazabilidad ágil para Bodegas de VMT</p>
+      </div>
+
+      <div class="space-y-3 text-left">
+        <div>
+          <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Seleccionar Operador / Usuario:</label>
+          <select id="userSelect" class="w-full bg-brand-surface text-xs rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+            <option value="Gabriel Padilla Conde">Gabriel Padilla Conde (Administrador / Sala 06)</option>
+            <option value="Karla De La Cruz Sanchez">Karla De La Cruz (Jefa de Almacén)</option>
+            <option value="Dayana Castro Sumaran">Dayana Castro Sumaran (Control de Inventario)</option>
+            <option value="Alex Paquiyauri Escobar">Alex Paquiyauri (Despacho y Mostrador)</option>
+            <option value="Dueña Bodega VMT">Rosa Huamán (Propietaria de Bodega)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Código PIN de acceso:</label>
+          <div class="relative">
+            <input type="password" id="pinInput" placeholder="PIN de 4 dígitos (Ej. 1234)" value="1234" maxlength="4" class="w-full bg-brand-surface text-center tracking-widest text-sm font-bold rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent font-mono">
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">PIN por defecto de prueba: <strong class="text-brand-accent">1234</strong></p>
+        </div>
+
+        <button onclick="handleLogin()" class="w-full py-3 bg-brand-accent hover:bg-brand-accentHover text-white rounded-xl text-xs font-extrabold shadow-lg transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> INGRESAR AL ALMACÉN
+        </button>
+      </div>
+
+      <div class="pt-2 border-t border-brand-border/40 text-[10px] text-slate-400">
+        Instituto SISE • Gestión Logística • 3er Ciclo
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor Maqueta Móvil -->
+  <div id="appContainer" class="w-full max-w-md h-screen max-h-screen flex flex-col bg-brand-dark shadow-2xl relative overflow-hidden border-x border-brand-border/40">
+
+    <!-- BARRA SUPERIOR / STATUS BAR NATIVA -->
+    <header class="bg-brand-navy border-b border-brand-border px-4 py-3 flex items-center justify-between z-20 shrink-0">
+      <div class="flex items-center gap-2">
+        <!-- Isotipo SVG MWMS -->
+        <svg viewBox="0 0 160 140" class="w-7 h-6 drop-shadow">
+          <rect x="25" y="65" width="16" height="45" fill="#193D66"/>
+          <rect x="47" y="45" width="16" height="65" fill="#F27A18"/>
+          <rect x="69" y="25" width="16" height="85" fill="#193D66"/>
+          <path d="M10 85 C45 80, 85 45, 125 15" stroke="#F27A18" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <polygon points="120,5 145,15 130,38" fill="#F27A18"/>
+        </svg>
+        <div>
+          <h1 class="text-base font-extrabold font-display leading-tight tracking-wider text-white">MICRO <span class="text-brand-accent">WMS</span></h1>
+          <p id="currentUserBadge" class="text-[9px] text-brand-lightBlue tracking-widest font-semibold uppercase truncate max-w-[130px]">Gabriel Padilla</p>
+        </div>
+      </div>
+
+      <!-- Indicadores de Estado y Automatizaciones -->
+      <div class="flex items-center gap-1.5 text-xs">
+        <!-- Botón Modo Offline/Online toggle -->
+        <button id="offlineToggleBtn" onclick="toggleOnlineStatus()" class="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1.5 transition">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="networkStatusLabel">Online</span>
+        </button>
+
+        <!-- Botón Alertas de Automatización -->
+        <button onclick="openAutomationModal()" class="relative p-1.5 rounded-lg bg-brand-surface border border-brand-border text-brand-lightBlue hover:text-white transition">
+          <i class="fa-solid fa-bolt text-brand-accent"></i>
+          <span id="alertsBadge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-[9px] font-black rounded-full flex items-center justify-center text-white border border-brand-dark">0</span>
+        </button>
+
+        <!-- Botón Cerrar Sesión -->
+        <button onclick="handleLogout()" title="Cerrar Sesión" class="p-1.5 rounded-lg bg-brand-surface border border-brand-border text-slate-400 hover:text-red-400 transition">
+          <i class="fa-solid fa-power-off"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ÁREA DE CONTENIDO PRINCIPAL SCROLLABLE -->
+    <main id="mainContent" class="flex-1 overflow-y-auto custom-scrollbar p-3 pb-24 relative space-y-3">
+      
+      <!-- ==================== PESTAÑA 1: MAESTRO SKU ==================== -->
+      <section id="tab-sku" class="tab-pane active space-y-3">
+        <!-- Buscador y filtro rápido -->
+        <div class="bg-brand-navy p-2.5 rounded-xl border border-brand-border space-y-2">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <input type="text" id="skuSearchInput" onkeyup="filterProducts()" placeholder="Buscar por SKU, nombre o categoría..." class="w-full bg-brand-surface text-xs rounded-lg pl-8 pr-8 py-2 border border-brand-border text-white focus:outline-none focus:border-brand-accent placeholder-slate-400">
+            <button onclick="clearSearch()" class="absolute right-2.5 top-2.5 text-slate-400 text-xs hover:text-white">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Filtros de categoría -->
+          <div class="flex gap-1.5 overflow-x-auto pb-1 text-[11px] custom-scrollbar font-medium">
+            <button onclick="filterCategory('todos')" class="cat-pill active px-3 py-1 rounded-full bg-brand-accent text-white font-bold whitespace-nowrap">Todos (<span id="count-todos">0</span>)</button>
+            <button onclick="filterCategory('Bebidas')" class="cat-pill px-3 py-1 rounded-full bg-brand-surface text-brand-lightBlue hover:text-white whitespace-nowrap border border-brand-border/60">Bebidas</button>
+            <button onclick="filterCategory('Golosinas')" class="cat-pill px-3 py-1 rounded-full bg-brand-surface text-brand-lightBlue hover:text-white whitespace-nowrap border border-brand-border/60">Golosinas</button>
+            <button onclick="filterCategory('Snacks')" class="cat-pill px-3 py-1 rounded-full bg-brand-surface text-brand-lightBlue hover:text-white whitespace-nowrap border border-brand-border/60">Snacks</button>
+            <button onclick="filterCategory('Abarrotes')" class="cat-pill px-3 py-1 rounded-full bg-brand-surface text-brand-lightBlue hover:text-white whitespace-nowrap border border-brand-border/60">Abarrotes</button>
+            <button onclick="filterCategory('bajo-stock')" class="cat-pill px-3 py-1 rounded-full bg-red-900/40 text-red-300 border border-red-500/50 whitespace-nowrap">🚨 Quiebres (<span id="count-alertas">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Banner de KPI de Inventario -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-brand-navy p-2 rounded-xl border border-brand-border text-center">
+            <p class="text-[10px] text-brand-lightBlue font-medium">SKUs Activos</p>
+            <p id="kpiTotalSkus" class="text-lg font-extrabold text-white font-display">0</p>
+          </div>
+          <div class="bg-brand-navy p-2 rounded-xl border border-brand-border text-center">
+            <p class="text-[10px] text-brand-lightBlue font-medium">Stock Total</p>
+            <p id="kpiTotalStock" class="text-lg font-extrabold text-brand-accent font-display">0</p>
+          </div>
+          <div class="bg-brand-navy p-2 rounded-xl border border-brand-border text-center cursor-pointer" onclick="filterCategory('bajo-stock')">
+            <p class="text-[10px] text-red-400 font-medium">En Alerta</p>
+            <p id="kpiAlertStock" class="text-lg font-extrabold text-red-400 font-display">0</p>
+          </div>
+        </div>
+
+        <!-- Lista de Productos (Catálogo) -->
+        <div id="productList" class="space-y-2"></div>
+      </section>
+
+      <!-- ==================== PESTAÑA 2: MOVIMIENTOS ==================== -->
+      <section id="tab-movimientos" class="tab-pane hidden space-y-3">
+        <div class="flex items-center justify-between bg-brand-navy p-3 rounded-xl border border-brand-border">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-brand-accent"></i> Registro Kardex en Vivo
+            </h2>
+            <p class="text-[10px] text-brand-lightBlue">Entradas de distribuidores y ventas en mostrador</p>
+          </div>
+          <button onclick="exportKardexCSV()" class="px-2.5 py-1.5 bg-brand-surface border border-brand-border rounded-lg text-xs font-semibold text-brand-lightBlue hover:text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-file-arrow-down text-brand-accent"></i> Exportar
+          </button>
+        </div>
+
+        <!-- Filtro Rápido de Movimientos -->
+        <div class="flex gap-2">
+          <button onclick="filterMovements('todos')" class="mov-filter active flex-1 py-1.5 rounded-lg bg-brand-surface border border-brand-accent text-white text-xs font-bold text-center">Todos</button>
+          <button onclick="filterMovements('INGRESO')" class="mov-filter flex-1 py-1.5 rounded-lg bg-brand-navy border border-brand-border text-emerald-400 text-xs font-bold text-center">Entradas (+)</button>
+          <button onclick="filterMovements('SALIDA')" class="mov-filter flex-1 py-1.5 rounded-lg bg-brand-navy border border-brand-border text-orange-400 text-xs font-bold text-center">Salidas (-)</button>
+        </div>
+
+        <!-- Lista de Movimientos -->
+        <div id="movementsList" class="space-y-2"></div>
+      </section>
+
+      <!-- ==================== PESTAÑA 3: GENERADOR DE CÓDIGOS ==================== -->
+      <section id="tab-generator" class="tab-pane hidden space-y-3">
+        <div class="bg-brand-navy p-3 rounded-xl border border-brand-border space-y-2">
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-barcode text-brand-accent"></i> Generador de Códigos Ficticios
+          </h2>
+          <p class="text-xs text-brand-lightBlue">
+            Genera rótulos y códigos de barras simulados (EAN-13 o SKU) para productos a granel, panadería o mercadería sin empaque de tu bodega.
+          </p>
+        </div>
+
+        <!-- Formulario Rápido de Generación -->
+        <div class="bg-brand-navy p-3.5 rounded-xl border border-brand-border space-y-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Nombre del Producto / Ítem</label>
+            <input type="text" id="genNameInput" placeholder="Ej. Avena en bolsa 250g o Huevo x Kilo" class="w-full bg-brand-surface text-xs rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Categoría</label>
+              <select id="genCategorySelect" class="w-full bg-brand-surface text-xs rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+                <option value="Abarrotes">Abarrotes</option>
+                <option value="Bebidas">Bebidas</option>
+                <option value="Golosinas">Golosinas</option>
+                <option value="Snacks">Snacks</option>
+                <option value="Limpieza">Limpieza</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Stock Inicial</label>
+              <input type="number" id="genStockInput" value="12" min="1" class="w-full bg-brand-surface text-xs rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Código Ficticio (SKU)</label>
+              <div class="flex gap-1">
+                <input type="text" id="genCodeInput" placeholder="77500123" class="w-full bg-brand-surface text-xs rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent font-mono">
+                <button onclick="generateRandomSKU()" title="Generar aleatorio" class="px-2.5 bg-brand-surface border border-brand-border rounded-lg text-brand-accent hover:bg-brand-border text-xs">
+                  <i class="fa-solid fa-dice"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-brand-lightBlue mb-1">Stock Mínimo (Alerta)</label>
+              <input type="number" id="genMinStockInput" value="3" min="1" class="w-full bg-brand-surface text-xs rounded-lg p-2.5 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+            </div>
+          </div>
+
+          <button onclick="createCustomBarcodeItem()" class="w-full py-2.5 bg-brand-accent hover:bg-brand-accentHover text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Crear Producto y Renderizar Código
+          </button>
+        </div>
+
+        <!-- Vista Previa del Código Generado -->
+        <div id="barcodePreviewCard" class="hidden bg-white text-slate-900 p-4 rounded-xl shadow-lg border-2 border-brand-accent text-center space-y-2">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Etiqueta Lista para Escaneo en Almacén</p>
+          <h4 id="previewProdName" class="text-sm font-extrabold text-slate-900">Producto</h4>
+          <div class="flex justify-center p-2 bg-slate-50 rounded-lg border border-slate-200 overflow-x-auto">
+            <svg id="barcodeCanvas"></svg>
+          </div>
+          <div class="flex justify-between items-center text-xs text-slate-600 px-2 pt-1 border-t border-slate-200">
+            <span>Ubicación: <strong class="text-slate-900">Rack B-02</strong></span>
+            <span>Micro WMS • Bodega VMT</span>
+          </div>
+          <p class="text-[10px] text-emerald-600 font-semibold">✔ Registrado automáticamente en Maestro SKU</p>
+        </div>
+      </section>
+
+      <!-- ==================== PESTAÑA 4: AUTOMATIZACIONES ==================== -->
+      <section id="tab-automatizaciones" class="tab-pane hidden space-y-3">
+        <div class="bg-brand-navy p-3 rounded-xl border border-brand-border space-y-1">
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-robot text-brand-accent"></i> Reglas Logísticas Automatizadas
+          </h2>
+          <p class="text-[11px] text-brand-lightBlue">
+            Micro WMS evalúa continuamente quiebres de stock, pedidos sugeridos y sincronizaciones.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <!-- Regla 1: Alerta de Quiebre -->
+          <div class="bg-brand-navy p-3 rounded-xl border border-brand-border flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0 mt-0.5">
+              <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+            </div>
+            <div class="flex-1">
+              <div class="flex justify-between items-center">
+                <h4 class="text-xs font-bold text-white">Alerta de Reposición Prioritaria</h4>
+                <span class="text-[9px] bg-red-950 text-red-300 px-2 py-0.5 rounded font-mono border border-red-800">AUTOMÁTICO</span>
+              </div>
+              <p class="text-[11px] text-brand-lightBlue mt-0.5">
+                Se activa cuando las existencias son &lt;= al Stock Mínimo.
+              </p>
+              <div id="ruleItemsAlertList" class="mt-2 space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- Regla 2: Pedido Sugerido WhatsApp -->
+          <div class="bg-brand-navy p-3 rounded-xl border border-brand-border flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-brand-surface border border-brand-border flex items-center justify-center text-brand-accent shrink-0 mt-0.5">
+              <i class="fa-solid fa-truck-ramp-box text-sm"></i>
+            </div>
+            <div class="flex-1">
+              <div class="flex justify-between items-center">
+                <h4 class="text-xs font-bold text-white">Pedido Sugerido a Proveedor</h4>
+                <span class="text-[9px] bg-brand-surface text-brand-accent px-2 py-0.5 rounded font-mono border border-brand-border">1-CLIC</span>
+              </div>
+              <p class="text-[11px] text-brand-lightBlue mt-0.5">
+                Calcula automáticamente la reposición hasta llegar al lote óptimo.
+              </p>
+              <button onclick="sharePurchaseOrderWhatsApp()" class="mt-2.5 w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition">
+                <i class="fa-brands fa-whatsapp text-sm"></i> Enviar Orden de Compra por WhatsApp
+              </button>
+            </div>
+          </div>
+
+          <!-- Regla 3: Sincronización en la Nube -->
+          <div class="bg-brand-navy p-3 rounded-xl border border-brand-border flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-brand-surface border border-brand-border flex items-center justify-center text-brand-lightBlue shrink-0 mt-0.5">
+              <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+            </div>
+            <div class="flex-1">
+              <h4 class="text-xs font-bold text-white">Sincronización en la Nube</h4>
+              <p class="text-[11px] text-brand-lightBlue mt-0.5">
+                Sincronización de transacciones guardadas en el dispositivo móvil con la planilla central.
+              </p>
+              <div class="flex gap-2 mt-2">
+                <button onclick="syncNowWithCloud()" class="flex-1 py-1.5 bg-brand-surface hover:bg-brand-border text-white text-xs font-semibold rounded-lg border border-brand-border flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-arrows-rotate"></i> Forzar Sync
+                </button>
+                <button onclick="resetDefaultDatabase()" class="py-1.5 px-3 bg-red-900/30 hover:bg-red-900/50 text-red-300 text-xs font-semibold rounded-lg border border-red-700/50">
+                  Reiniciar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- BOTÓN FLOTANTE PRINCIPAL (ESCANEAR) -->
+    <div class="absolute bottom-16 right-4 z-30">
+      <button onclick="openScannerModal()" class="w-14 h-14 rounded-full bg-brand-accent hover:bg-brand-accentHover text-white shadow-2xl flex items-center justify-center text-xl border-2 border-brand-dark transition-all transform active:scale-95 group">
+        <i class="fa-solid fa-barcode group-hover:scale-110 transition-transform"></i>
+      </button>
+    </div>
+
+    <!-- BARRA DE NAVEGACIÓN INFERIOR -->
+    <nav class="bg-brand-navy border-t border-brand-border px-2 py-1.5 flex justify-around items-center z-20 shrink-0">
+      <button onclick="switchTab('sku')" id="nav-btn-sku" class="nav-item active flex flex-col items-center py-1 px-3 text-brand-accent font-bold transition">
+        <i class="fa-solid fa-boxes-stacked text-base mb-0.5"></i>
+        <span class="text-[10px]">Maestro SKU</span>
+      </button>
+
+      <button onclick="switchTab('movimientos')" id="nav-btn-movimientos" class="nav-item flex flex-col items-center py-1 px-3 text-brand-lightBlue hover:text-white transition">
+        <i class="fa-solid fa-dolly text-base mb-0.5"></i>
+        <span class="text-[10px]">Movimientos</span>
+      </button>
+
+      <button onclick="switchTab('generator')" id="nav-btn-generator" class="nav-item flex flex-col items-center py-1 px-3 text-brand-lightBlue hover:text-white transition">
+        <i class="fa-solid fa-qrcode text-base mb-0.5"></i>
+        <span class="text-[10px]">Generador</span>
+      </button>
+
+      <button onclick="switchTab('automatizaciones')" id="nav-btn-automatizaciones" class="nav-item flex flex-col items-center py-1 px-3 text-brand-lightBlue hover:text-white transition">
+        <i class="fa-solid fa-bolt text-base mb-0.5"></i>
+        <span class="text-[10px]">Reglas & IA</span>
+      </button>
+    </nav>
+
+    <!-- ==================== MODAL: ESCÁNER CON CÁMARA & REGISTRO ==================== -->
+    <div id="scannerModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex flex-col justify-end transition-opacity">
+      <div class="bg-brand-navy border-t border-brand-border rounded-t-2xl p-4 max-h-[92vh] overflow-y-auto space-y-3 shadow-2xl">
+        
+        <!-- Header Modal con Estado de Cámara y botón Registrar SKU -->
+        <div class="flex items-center justify-between pb-2 border-b border-brand-border">
+          <div class="flex items-center gap-2">
+            <span id="cameraStatusBadge" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Cámara en Vivo
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openNewProductModal('')" class="px-2 py-1 bg-brand-surface border border-brand-accent/50 text-brand-accent hover:bg-brand-accent hover:text-white rounded text-[10px] font-bold flex items-center gap-1 transition">
+              <i class="fa-solid fa-plus"></i> Nuevo SKU
+            </button>
+            <button onclick="closeScannerModal()" class="text-slate-400 hover:text-white p-1">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visor de Cámara Real y Continuo -->
+        <div class="relative bg-black rounded-xl overflow-hidden border-2 border-brand-accent/60 aspect-video flex flex-col items-center justify-center">
+          <div id="reader" class="w-full h-full"></div>
+          
+          <!-- Mira Láser Superpuesta -->
+          <div id="scannerOverlay" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+            <div class="w-3/4 h-28 border-2 border-dashed border-brand-accent/80 rounded-lg relative flex items-center justify-center">
+              <div class="w-full h-0.5 bg-red-500 laser-line shadow-[0_0_8px_#ef4444] absolute"></div>
+              <span class="text-[10px] bg-brand-dark/80 px-2 py-0.5 rounded text-brand-lightBlue font-mono">Enfoca el código de barras</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controles de Soporte / Alternativas de Escaneo -->
+        <div class="flex gap-2">
+          <button id="toggleCameraBtn" onclick="toggleCameraScanning()" class="flex-1 py-2 bg-brand-surface hover:bg-brand-border border border-brand-border text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-video text-brand-accent"></i> <span id="cameraBtnLabel">Pausar Cámara</span>
+          </button>
+          <label class="flex-1 py-2 bg-brand-navy hover:bg-brand-surface border border-brand-accent/50 text-brand-accent text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer text-center">
+            <i class="fa-solid fa-camera"></i> <span>Foto / Escanear</span>
+            <input type="file" id="barcodeFileInput" accept="image/*" capture="environment" class="hidden" onchange="handleFileScan(event)">
+          </label>
+        </div>
+
+        <!-- Selector simulado para pruebas directas -->
+        <div class="w-full relative">
+          <select id="simulatedScanSelect" onchange="simulateScannedCode(this.value)" class="w-full bg-brand-surface text-brand-lightBlue text-xs rounded-lg p-2 border border-brand-border focus:outline-none focus:border-brand-accent">
+            <option value="">⚡ O selecciona un código de prueba directa...</option>
+          </select>
+        </div>
+
+        <!-- Formulario de Transacción del Producto Detectado -->
+        <div id="scannedProductForm" class="bg-brand-surface p-3 rounded-xl border border-brand-border space-y-2.5">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="text-[10px] text-brand-lightBlue font-mono uppercase" id="formScannedSku">SKU: ---</p>
+              <h4 id="formScannedName" class="text-sm font-extrabold text-white">Escanea un producto para operar</h4>
+              <p class="text-xs text-brand-accent font-semibold" id="formCurrentStock">Stock actual: --</p>
+            </div>
+            <span id="formStatusBadge" class="px-2 py-0.5 bg-slate-800 text-[10px] rounded text-slate-300 font-bold">En espera</span>
+          </div>
+
+          <!-- Selector de Tipo de Movimiento: INGRESO vs SALIDA -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button type="button" id="btnTypeIngreso" onclick="setMovementType('INGRESO')" class="py-2.5 rounded-lg border-2 border-emerald-500 bg-emerald-500/20 text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-circle-arrow-down"></i> INGRESO (+)
+            </button>
+            <button type="button" id="btnTypeSalida" onclick="setMovementType('SALIDA')" class="py-2.5 rounded-lg border border-brand-border bg-brand-navy text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-circle-arrow-up"></i> SALIDA (-)
+            </button>
+          </div>
+
+          <!-- BOTONES DE CANTIDAD RÁPIDA (+1, +6, +12, +24) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-[11px] font-semibold text-brand-lightBlue">Cantidad a procesar:</label>
+              <span class="text-[10px] text-brand-accent">Atajo para ventas de mostrador</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5 mb-2">
+              <button onclick="setQuickQty(1)" class="py-1.5 bg-brand-navy hover:bg-brand-border text-white text-xs font-bold rounded border border-brand-border">+1 Unid</button>
+              <button onclick="setQuickQty(6)" class="py-1.5 bg-brand-navy hover:bg-brand-border text-white text-xs font-bold rounded border border-brand-border">+6 (1/2 doc)</button>
+              <button onclick="setQuickQty(12)" class="py-1.5 bg-brand-navy hover:bg-brand-border text-white text-xs font-bold rounded border border-brand-border">+12 (Docena)</button>
+              <button onclick="setQuickQty(24)" class="py-1.5 bg-brand-navy hover:bg-brand-border text-white text-xs font-bold rounded border border-brand-border">+24 (Caja)</button>
+            </div>
+            <div class="relative">
+              <input type="number" id="transactionQtyInput" min="1" value="1" class="w-full bg-brand-navy text-base font-extrabold rounded-lg p-2.5 border border-brand-border text-center text-white focus:outline-none focus:border-brand-accent">
+            </div>
+          </div>
+
+          <!-- Motivo u Observación -->
+          <div>
+            <input type="text" id="transactionNotesInput" placeholder="Nota rápida: 'Llegó distribuidor' / 'Venta mostrador'" class="w-full bg-brand-navy text-xs rounded-lg p-2 border border-brand-border text-white focus:outline-none focus:border-brand-accent placeholder-slate-500">
+          </div>
+
+          <!-- Botón de Confirmación -->
+          <button id="btnConfirmTransaction" onclick="submitTransaction()" class="w-full py-3 bg-brand-accent hover:bg-brand-accentHover text-white rounded-lg text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg transition">
+            <i class="fa-solid fa-check-double"></i> CONFIRMAR REGISTRO
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== MODAL: REGISTRO DE PRODUCTO NUEVO DETECTADO ==================== -->
+    <div id="newProductModal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-brand-navy border border-brand-border rounded-2xl w-full max-w-sm p-4 space-y-3 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-brand-border pb-2">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-brand-accent"></i>
+            <h3 class="text-sm font-bold text-white m-0">Nuevo Producto Detectado</h3>
+          </div>
+          <button onclick="closeNewProductModal()" class="text-slate-400 hover:text-white">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <p class="text-[11px] text-brand-lightBlue">
+          El código escaneado no está en tu catálogo. Completa los datos para registrarlo e iniciar movimientos de inmediato:
+        </p>
+
+        <div class="space-y-2.5">
+          <div>
+            <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Código de Barras (SKU)</label>
+            <input type="text" id="newProdCodeInput" readonly class="w-full bg-brand-dark/70 text-xs rounded-lg p-2 border border-brand-border text-brand-accent font-mono font-bold focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Descripción / Nombre del Producto</label>
+            <input type="text" id="newProdNameInput" placeholder="Ej. Leche Gloria 400g o Fideos Don Vittorio" class="w-full bg-brand-surface text-xs rounded-lg p-2 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Categoría</label>
+              <select id="newProdCategorySelect" class="w-full bg-brand-surface text-xs rounded-lg p-2 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+                <option value="Abarrotes">Abarrotes</option>
+                <option value="Bebidas">Bebidas</option>
+                <option value="Golosinas">Golosinas</option>
+                <option value="Snacks">Snacks</option>
+                <option value="Limpieza">Limpieza</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Ubicación física</label>
+              <input type="text" id="newProdLocationInput" value="Rack A-01" class="w-full bg-brand-surface text-xs rounded-lg p-2 border border-brand-border text-white focus:outline-none focus:border-brand-accent">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Stock inicial</label>
+              <input type="number" id="newProdStockInput" value="12" min="0" class="w-full bg-brand-surface text-xs rounded-lg p-2 border border-brand-border text-white text-center focus:outline-none focus:border-brand-accent">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Stock mínimo</label>
+              <input type="number" id="newProdMinStockInput" value="3" min="1" class="w-full bg-brand-surface text-xs rounded-lg p-2 border border-brand-border text-white text-center focus:outline-none focus:border-brand-accent">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-brand-lightBlue mb-0.5">Precio (S/)</label>
+              <input type="number" step="0.10" id="newProdPriceInput" value="2.50" min="0" class="w-full bg-brand-surface text-xs rounded-lg p-2 border border-brand-border text-white text-center focus:outline-none focus:border-brand-accent">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-1">
+          <button onclick="closeNewProductModal()" class="flex-1 py-2 bg-brand-surface hover:bg-brand-border text-slate-300 text-xs font-bold rounded-lg border border-brand-border">
+            Cancelar
+          </button>
+          <button onclick="saveNewProductFromModal()" class="flex-1 py-2 bg-brand-accent hover:bg-brand-accentHover text-white text-xs font-bold rounded-lg shadow transition">
+            Guardar y Usar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL DE RESUMEN DE AUTOMATIZACIONES ==================== -->
+    <div id="automationModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-brand-navy border border-brand-border rounded-2xl w-full max-w-sm p-4 space-y-3 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-brand-border pb-2">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2 m-0">
+            <i class="fa-solid fa-bell text-brand-accent"></i> Notificaciones de Almacén
+          </h3>
+          <button onclick="closeAutomationModal()" class="text-slate-400 hover:text-white">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div id="automationModalContent" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar text-xs"></div>
+
+        <button onclick="closeAutomationModal()" class="w-full py-2 bg-brand-surface hover:bg-brand-border text-white text-xs font-bold rounded-lg border border-brand-border">
+          Entendido
+        </button>
+      </div>
+    </div>
+
+    <!-- TOAST DE CONFIRMACIÓN VISUAL Y AUDITIVA -->
+    <div id="toastNotification" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none max-w-xs w-full px-3">
+      <div id="toastBox" class="bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-400">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-lg"></i>
+        <div class="flex-1">
+          <p id="toastTitle" class="text-xs font-bold">¡Operación Exitosa!</p>
+          <p id="toastDesc" class="text-[10px] text-emerald-100">Kardex actualizado correctamente.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // CATÁLOGO EXPANDIDO DE PRODUCTOS POPULARES PERUANOS CON CÓDIGOS EAN-13 / SKU FICTICIOS
+    const DEFAULT_SKUS = [
+      { id: "77501001", name: "Leche Gloria Azul Entera 400g", category: "Abarrotes", stock: 18, minStock: 6, location: "Anaquel A-01", price: 4.20 },
+      { id: "77501002", name: "Inca Kola 3 Litros No Retornable", category: "Bebidas", stock: 8, minStock: 4, location: "Piso B-01", price: 12.50 },
+      { id: "77501003", name: "Arroz Extra Costeño 1 Kg", category: "Abarrotes", stock: 24, minStock: 8, location: "Tarima C-01", price: 4.90 },
+      { id: "77501004", name: "Aceite Vegetal Primor Clásico 900ml", category: "Abarrotes", stock: 2, minStock: 5, location: "Anaquel A-02", price: 8.50 },
+      { id: "77501005", name: "Fideos Spaghetti Don Vittorio 450g", category: "Abarrotes", stock: 15, minStock: 6, location: "Anaquel A-03", price: 3.10 },
+      { id: "77501006", name: "Galleta Rellena Casino Menta 6pk", category: "Golosinas", stock: 3, minStock: 6, location: "Mostrador G-01", price: 1.00 },
+      { id: "77501007", name: "Galleta Soda Field Clásica 6pk", category: "Golosinas", stock: 14, minStock: 5, location: "Mostrador G-02", price: 0.90 },
+      { id: "77501008", name: "Papitas Lays Clásicas Ondas 45g", category: "Snacks", stock: 1, minStock: 6, location: "Colgante S-01", price: 1.80 },
+      { id: "77501009", name: "Chizitos Fiesta Piqueo Snack 55g", category: "Snacks", stock: 0, minStock: 5, location: "Colgante S-02", price: 1.50 },
+      { id: "77501010", name: "Atún en Trozos Primor 170g", category: "Abarrotes", stock: 7, minStock: 4, location: "Anaquel A-04", price: 5.60 },
+      { id: "77501011", name: "Detergente Ace Floral 750g", category: "Limpieza", stock: 10, minStock: 4, location: "Piso L-01", price: 6.80 },
+      { id: "77501012", name: "Jabón Bolívar Bebé / Blanco 210g", category: "Limpieza", stock: 5, minStock: 3, location: "Anaquel L-02", price: 3.20 },
+      { id: "77501013", name: "Cerveza Cusqueña Trigo 310ml Bot.", category: "Bebidas", stock: 12, minStock: 6, location: "Frigorífico B-02", price: 5.00 },
+      { id: "77501014", name: "Gaseosa Kola Real Piña 3 Lt", category: "Bebidas", stock: 2, minStock: 4, location: "Piso B-03", price: 6.50 },
+      { id: "77501015", name: "Ají No Moto Sazonador 100g", category: "Abarrotes", stock: 20, minStock: 5, location: "Anaquel A-05", price: 2.30 }
+    ];
+
+    let currentLoggedInUser = "Gabriel Padilla Conde";
+    let skuDatabase = [];
+    let movementsHistory = [];
+    let currentCategoryFilter = 'todos';
+    let currentMovementType = 'INGRESO';
+    let selectedProductForTransaction = null;
+    let isOnline = true;
+    let html5QrCodeScanner = null;
+    let isCameraRunning = false;
+    let lastScannedCode = null;
+    let lastScanTimestamp = 0;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      checkLoginSession();
+      loadDatabase();
+      renderSKUs();
+      renderMovements();
+      populateSimulatedScannerOptions();
+      checkAutomationsAndAlerts();
+      generateRandomSKU();
+    });
+
+    function checkLoginSession() {
+      const savedUser = sessionStorage.getItem('mwms_session_user');
+      if (savedUser) {
+        currentLoggedInUser = savedUser;
+        document.getElementById('currentUserBadge').textContent = currentLoggedInUser;
+        document.getElementById('loginScreen').classList.add('hidden');
+      } else {
+        document.getElementById('loginScreen').classList.remove('hidden');
+      }
+    }
+
+    function handleLogin() {
+      const selectedUser = document.getElementById('userSelect').value;
+      const pin = document.getElementById('pinInput').value.trim();
+
+      if (pin !== "1234") {
+        showToast("PIN Incorrecto", "Ingresa el PIN de prueba (1234)", "warning");
+        return;
+      }
+
+      currentLoggedInUser = selectedUser;
+      sessionStorage.setItem('mwms_session_user', currentLoggedInUser);
+      document.getElementById('currentUserBadge').textContent = currentLoggedInUser;
+      document.getElementById('loginScreen').classList.add('hidden');
+      playBeepSound('success');
+      showToast("Bienvenido", `Sesión iniciada como ${currentLoggedInUser}`, "success");
+    }
+
+    function handleLogout() {
+      sessionStorage.removeItem('mwms_session_user');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      showToast("Sesión cerrada", "Vuelve a ingresar tus datos.", "warning");
+    }
+
+    function loadDatabase() {
+      try {
+        const savedSkus = sessionStorage.getItem('mwms_skus');
+        const savedMovs = sessionStorage.getItem('mwms_movs');
+        skuDatabase = savedSkus ? JSON.parse(savedSkus) : [...DEFAULT_SKUS];
+        movementsHistory = savedMovs ? JSON.parse(savedMovs) : [
+          { id: "MOV-1001", sku: "77501001", name: "Leche Gloria Azul Entera 400g", type: "INGRESO", qty: 24, date: "02/10/2026 09:15", user: "Gabriel Padilla", notes: "Llegó pedido mayorista distribuidor" },
+          { id: "MOV-1002", sku: "77501008", name: "Papitas Lays Clásicas Ondas 45g", type: "SALIDA", qty: 4, date: "02/10/2026 11:20", user: "Karla De La Cruz", notes: "Venta mostrador receso" },
+          { id: "MOV-1003", sku: "77501002", name: "Inca Kola 3 Litros No Retornable", type: "SALIDA", qty: 2, date: "02/10/2026 14:10", user: "Alex Paquiyauri", notes: "Venta a cliente vecinal" }
+        ];
+      } catch (e) {
+        skuDatabase = [...DEFAULT_SKUS];
+        movementsHistory = [];
+      }
+    }
+
+    function saveState() {
+      try {
+        sessionStorage.setItem('mwms_skus', JSON.stringify(skuDatabase));
+        sessionStorage.setItem('mwms_movs', JSON.stringify(movementsHistory));
+      } catch (e) {
+        console.warn("Storage restricted", e);
+      }
+      updateKpis();
+      checkAutomationsAndAlerts();
+    }
+
+    function playBeepSound(type = 'success') {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'success') {
+          osc.frequency.setValueAtTime(1750, audioCtx.currentTime);
+          gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.08);
+        } else if (type === 'warning') {
+          osc.frequency.setValueAtTime(450, audioCtx.currentTime);
+          gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.15);
+        }
+      } catch (err) {}
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.remove('text-brand-accent', 'font-bold');
+        el.classList.add('text-brand-lightBlue');
+      });
+
+      const activeTab = document.getElementById(`tab-${tabId}`);
+      const activeBtn = document.getElementById(`nav-btn-${tabId}`);
+
+      if (activeTab) activeTab.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.classList.remove('text-brand-lightBlue');
+        activeBtn.classList.add('text-brand-accent', 'font-bold');
+      }
+
+      if (tabId === 'sku') renderSKUs();
+      if (tabId === 'movimientos') renderMovements();
+      if (tabId === 'automatizaciones') renderAutomationRulesView();
+    }
+
+    function renderSKUs() {
+      const container = document.getElementById('productList');
+      const searchTerm = (document.getElementById('skuSearchInput').value || '').toLowerCase();
+      container.innerHTML = '';
+
+      let filtered = skuDatabase.filter(item => {
+        const matchesCategory = (currentCategoryFilter === 'todos') ? true :
+          (currentCategoryFilter === 'bajo-stock') ? (item.stock <= item.minStock) :
+          (item.category === currentCategoryFilter);
+
+        const matchesSearch = item.name.toLowerCase().includes(searchTerm) ||
+                              item.id.toLowerCase().includes(searchTerm) ||
+                              item.category.toLowerCase().includes(searchTerm);
+
+        return matchesCategory && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-brand-navy p-6 rounded-xl border border-brand-border text-center space-y-2">
+            <i class="fa-solid fa-box-open text-3xl text-slate-500"></i>
+            <p class="text-xs text-brand-lightBlue">No se encontraron productos con el filtro aplicado.</p>
+          </div>
+        `;
+        updateKpis();
+        return;
+      }
+
+      filtered.forEach(prod => {
+        const isOutOfStock = prod.stock === 0;
+        const isLowStock = prod.stock <= prod.minStock && !isOutOfStock;
+        
+        const badgeColor = isOutOfStock ? 'bg-red-950 text-red-400 border-red-700' :
+                           isLowStock ? 'bg-amber-950 text-amber-400 border-amber-700' :
+                           'bg-emerald-950 text-emerald-400 border-emerald-700';
+
+        const stockColor = isOutOfStock ? 'text-red-500' :
+                           isLowStock ? 'text-amber-400' : 'text-emerald-400';
+
+        const card = document.createElement('div');
+        card.className = "bg-brand-navy hover:bg-brand-surface p-3 rounded-xl border border-brand-border transition-all flex items-center justify-between";
+        card.innerHTML = `
+          <div class="flex-1 pr-2 cursor-pointer" onclick="openDirectProductScan('${prod.id}')">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-[10px] font-mono text-brand-lightBlue font-semibold">${prod.id}</span>
+              <span class="text-[9px] px-1.5 py-0.2 rounded border ${badgeColor} font-bold">${prod.category}</span>
+            </div>
+            <h4 class="text-xs font-bold text-white leading-tight">${prod.name}</h4>
+            <div class="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
+              <span><i class="fa-solid fa-location-dot text-brand-accent"></i> ${prod.location}</span>
+              <span>Min: ${prod.minStock} u.</span>
+              <span>S/ ${prod.price.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="text-right mr-1">
+              <span class="text-lg font-black font-display ${stockColor}">${prod.stock}</span>
+              <span class="text-[9px] block text-slate-400 font-semibold">unid.</span>
+            </div>
+            <button onclick="openDirectProductScan('${prod.id}')" class="w-8 h-8 rounded-lg bg-brand-surface hover:bg-brand-border border border-brand-border flex items-center justify-center text-brand-accent" title="Operar">
+              <i class="fa-solid fa-barcode text-xs"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      updateKpis();
+    }
+
+    function updateKpis() {
+      document.getElementById('kpiTotalSkus').textContent = skuDatabase.length;
+      const totalUnits = skuDatabase.reduce((acc, curr) => acc + curr.stock, 0);
+      document.getElementById('kpiTotalStock').textContent = totalUnits;
+      const alertItems = skuDatabase.filter(i => i.stock <= i.minStock);
+      document.getElementById('kpiAlertStock').textContent = alertItems.length;
+
+      document.getElementById('count-todos').textContent = skuDatabase.length;
+      document.getElementById('count-alertas').textContent = alertItems.length;
+      document.getElementById('alertsBadge').textContent = alertItems.length;
+    }
+
+    function filterCategory(cat) {
+      currentCategoryFilter = cat;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        btn.classList.remove('bg-brand-accent', 'text-white', 'font-bold');
+        btn.classList.add('bg-brand-surface', 'text-brand-lightBlue');
+      });
+      event.target.classList.add('bg-brand-accent', 'text-white', 'font-bold');
+      event.target.classList.remove('bg-brand-surface', 'text-brand-lightBlue');
+      renderSKUs();
+    }
+
+    function filterProducts() { renderSKUs(); }
+    function clearSearch() { document.getElementById('skuSearchInput').value = ''; renderSKUs(); }
+
+    function openScannerModal() {
+      document.getElementById('scannerModal').classList.remove('hidden');
+      populateSimulatedScannerOptions();
+      setTimeout(() => {
+        startCameraScanning();
+      }, 120);
+    }
+
+    function closeScannerModal() {
+      stopCameraScanning();
+      document.getElementById('scannerModal').classList.add('hidden');
+      selectedProductForTransaction = null;
+      resetTransactionForm();
+    }
+
+    function toggleCameraScanning() {
+      if (isCameraRunning) {
+        stopCameraScanning();
+      } else {
+        startCameraScanning();
+      }
+    }
+
+    function startCameraScanning() {
+      const qrBoxElement = document.getElementById('reader');
+      if (!qrBoxElement || isCameraRunning) return;
+
+      const badge = document.getElementById('cameraStatusBadge');
+      const label = document.getElementById('cameraBtnLabel');
+
+      try {
+        if (!html5QrCodeScanner) {
+          html5QrCodeScanner = new Html5Qrcode("reader");
+        }
+
+        const config = { 
+          fps: 15, 
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            return {
+              width: Math.floor(minEdge * 0.85),
+              height: Math.floor(minEdge * 0.6)
+            };
+          },
+          aspectRatio: 1.333
+        };
+
+        html5QrCodeScanner.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            handleScannedBarcode(decodedText);
+          },
+          (errorMessage) => {}
+        ).then(() => {
+          isCameraRunning = true;
+          if (label) label.textContent = "Pausar Cámara";
+          if (badge) {
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Cámara en Vivo';
+            badge.className = "px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1";
+          }
+          document.getElementById('scannerOverlay').classList.remove('hidden');
+        }).catch(err => {
+          console.warn("Cámara denegada:", err);
+          isCameraRunning = false;
+          if (label) label.textContent = "Encender Cámara";
+          if (badge) {
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Modo Foto / Manual';
+            badge.className = "px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1";
+          }
+          showToast("Cámara Bloqueada", "Usa el botón 'Foto / Escanear' para continuar.", "warning");
+        });
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+
+    function stopCameraScanning() {
+      const badge = document.getElementById('cameraStatusBadge');
+      const label = document.getElementById('cameraBtnLabel');
+
+      if (html5QrCodeScanner && isCameraRunning) {
+        html5QrCodeScanner.stop().then(() => {
+          html5QrCodeScanner.clear();
+          isCameraRunning = false;
+          if (label) label.textContent = "Encender Cámara";
+          if (badge) {
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Pausada';
+            badge.className = "px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold flex items-center gap-1";
+          }
+        }).catch(err => console.warn(err));
+      }
+    }
+
+    function handleFileScan(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      showToast("Procesando imagen...", "Leyendo código de barras de la foto.", "success");
+      const scanner = new Html5Qrcode("reader");
+      scanner.scanFile(file, true)
+        .then(decodedText => {
+          handleScannedBarcode(decodedText);
+          scanner.clear();
+        })
+        .catch(err => {
+          showToast("No se reconoció el código", "Enfoca bien las barras y vuelve a intentarlo.", "warning");
+          playBeepSound('warning');
+          scanner.clear();
+        });
+      event.target.value = '';
+    }
+
+    function handleScannedBarcode(barcodeText) {
+      const code = barcodeText.trim();
+      if (!code) return;
+
+      const now = Date.now();
+      if (lastScannedCode === code && (now - lastScanTimestamp) < 2000) {
+        return;
+      }
+      lastScannedCode = code;
+      lastScanTimestamp = now;
+
+      const product = skuDatabase.find(p => p.id === code);
+
+      if (product) {
+        selectProductForTransaction(product);
+        playBeepSound('success');
+        showToast("Código Detectado", `${product.name} (Stock: ${product.stock})`, "success");
+      } else {
+        playBeepSound('warning');
+        showToast("Código No Registrado", `SKU ${code} nuevo. ¡Regístralo ahora!`, "warning");
+        openNewProductModal(code);
+      }
+    }
+
+    function openNewProductModal(suggestedCode = '') {
+      document.getElementById('newProdCodeInput').value = suggestedCode;
+      document.getElementById('newProdNameInput').value = '';
+      document.getElementById('newProdStockInput').value = '12';
+      document.getElementById('newProdMinStockInput').value = '3';
+      document.getElementById('newProdPriceInput').value = '2.50';
+      document.getElementById('newProductModal').classList.remove('hidden');
+
+      setTimeout(() => {
+        document.getElementById('newProdNameInput').focus();
+      }, 100);
+    }
+
+    function closeNewProductModal() {
+      document.getElementById('newProductModal').classList.add('hidden');
+    }
+
+    function saveNewProductFromModal() {
+      const code = document.getElementById('newProdCodeInput').value.trim();
+      const name = document.getElementById('newProdNameInput').value.trim();
+      const category = document.getElementById('newProdCategorySelect').value;
+      const location = document.getElementById('newProdLocationInput').value.trim() || 'Anaquel A-01';
+      const stock = parseInt(document.getElementById('newProdStockInput').value) || 0;
+      const minStock = parseInt(document.getElementById('newProdMinStockInput').value) || 3;
+      const price = parseFloat(document.getElementById('newProdPriceInput').value) || 2.00;
+
+      if (!code || !name) {
+        showToast("Campos requeridos", "Ingresa el código y el nombre del producto.", "warning");
+        return;
+      }
+
+      const existingIndex = skuDatabase.findIndex(p => p.id === code);
+      const newProduct = { id: code, name, category, location, stock, minStock, price };
+
+      if (existingIndex >= 0) {
+        skuDatabase[existingIndex] = newProduct;
+      } else {
+        skuDatabase.unshift(newProduct);
+      }
+
+      saveState();
+      populateSimulatedScannerOptions();
+      renderSKUs();
+      closeNewProductModal();
+
+      selectProductForTransaction(newProduct);
+      playBeepSound('success');
+      showToast("¡Producto Registrado!", `${name} listo para operar en almacén.`, "success");
+    }
+
+    function simulateScannedCode(skuCode) {
+      if (!skuCode) return;
+      handleScannedBarcode(skuCode);
+    }
+
+    function openDirectProductScan(skuCode) {
+      openScannerModal();
+      simulateScannedCode(skuCode);
+    }
+
+    function selectProductForTransaction(prod) {
+      selectedProductForTransaction = prod;
+      document.getElementById('formScannedSku').textContent = `SKU: ${prod.id} • ${prod.location}`;
+      document.getElementById('formScannedName').textContent = prod.name;
+      document.getElementById('formCurrentStock').textContent = `Stock actual: ${prod.stock} unidades`;
+      
+      const statusBadge = document.getElementById('formStatusBadge');
+      if (prod.stock === 0) {
+        statusBadge.textContent = "Sin Stock";
+        statusBadge.className = "px-2 py-0.5 bg-red-950 text-[10px] rounded text-red-300 font-bold border border-red-700";
+      } else {
+        statusBadge.textContent = "Disponible";
+        statusBadge.className = "px-2 py-0.5 bg-emerald-950 text-[10px] rounded text-emerald-300 font-bold border border-emerald-700";
+      }
+    }
+
+    function setMovementType(type) {
+      currentMovementType = type;
+      const btnIn = document.getElementById('btnTypeIngreso');
+      const btnOut = document.getElementById('btnTypeSalida');
+
+      if (type === 'INGRESO') {
+        btnIn.className = "py-2.5 rounded-lg border-2 border-emerald-500 bg-emerald-500/20 text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 transition";
+        btnOut.className = "py-2.5 rounded-lg border border-brand-border bg-brand-navy text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition";
+      } else {
+        btnOut.className = "py-2.5 rounded-lg border-2 border-orange-500 bg-orange-500/20 text-orange-300 font-extrabold text-xs flex items-center justify-center gap-1.5 transition";
+        btnIn.className = "py-2.5 rounded-lg border border-brand-border bg-brand-navy text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition";
+      }
+    }
+
+    function setQuickQty(qty) {
+      document.getElementById('transactionQtyInput').value = qty;
+    }
+
+    function submitTransaction() {
+      if (!selectedProductForTransaction) {
+        showToast("Atención", "Escanea o selecciona un producto primero.", "warning");
+        playBeepSound('warning');
+        return;
+      }
+
+      const qty = parseInt(document.getElementById('transactionQtyInput').value) || 1;
+      const notes = document.getElementById('transactionNotesInput').value.trim() || 
+                    (currentMovementType === 'INGRESO' ? 'Recepción de distribuidor' : 'Despacho mostrador');
+
+      if (qty <= 0) {
+        showToast("Error", "La cantidad debe ser mayor a 0", "warning");
+        return;
+      }
+
+      if (currentMovementType === 'SALIDA' && selectedProductForTransaction.stock < qty) {
+        showToast("Stock Insuficiente", `Solo quedan ${selectedProductForTransaction.stock} unidades en anaquel.`, "warning");
+        playBeepSound('warning');
+        return;
+      }
+
+      if (currentMovementType === 'INGRESO') {
+        selectedProductForTransaction.stock += qty;
+      } else {
+        selectedProductForTransaction.stock -= qty;
+      }
+
+      const newMovement = {
+        id: `MOV-${Math.floor(1000 + Math.random() * 9000)}`,
+        sku: selectedProductForTransaction.id,
+        name: selectedProductForTransaction.name,
+        type: currentMovementType,
+        qty: qty,
+        date: new Date().toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+        user: "Operador Bodega",
+        notes: notes
+      };
+
+      movementsHistory.unshift(newMovement);
+      saveState();
+
+      if (currentMovementType === 'INGRESO' && selectedProductForTransaction.stock === qty) {
+        confetti({ particleCount: 40, spread: 60, origin: { y: 0.8 } });
+      }
+
+      playBeepSound('success');
+      showToast(
+        currentMovementType === 'INGRESO' ? "¡Entrada Registrada!" : "¡Salida Registrada!",
+        `${selectedProductForTransaction.name}: ${currentMovementType === 'INGRESO' ? '+' : '-'}${qty} un. (Stock: ${selectedProductForTransaction.stock})`,
+        "success"
+      );
+
+      selectProductForTransaction(selectedProductForTransaction);
+      renderSKUs();
+      renderMovements();
+    }
+
+    function resetTransactionForm() {
+      document.getElementById('formScannedSku').textContent = "SKU: ---";
+      document.getElementById('formScannedName').textContent = "Escanea un producto para operar";
+      document.getElementById('formCurrentStock').textContent = "Stock actual: --";
+      document.getElementById('transactionQtyInput').value = "1";
+      document.getElementById('transactionNotesInput').value = "";
+    }
+
+    function populateSimulatedScannerOptions() {
+      const select = document.getElementById('simulatedScanSelect');
+      select.innerHTML = '<option value="">⚡ Escanear de prueba directa...</option>';
+      skuDatabase.forEach(p => {
+        select.innerHTML += `<option value="${p.id}">${p.id} - ${p.name} (${p.stock}u)</option>`;
+      });
+    }
+
+    function renderMovements() {
+      const container = document.getElementById('movementsList');
+      container.innerHTML = '';
+
+      const filtered = movementsHistory.filter(m => {
+        if (currentCategoryFilter === 'todos') return true;
+        return m.type === currentCategoryFilter;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-brand-navy p-6 rounded-xl border border-brand-border text-center">
+            <p class="text-xs text-brand-lightBlue">No hay registros de movimientos en esta vista.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(mov => {
+        const isIngreso = mov.type === 'INGRESO';
+        const color = isIngreso ? 'text-emerald-400' : 'text-orange-400';
+        const icon = isIngreso ? 'fa-arrow-down-long text-emerald-400' : 'fa-arrow-up-long text-orange-400';
+        const bgIcon = isIngreso ? 'bg-emerald-950/60 border-emerald-700/50' : 'bg-orange-950/60 border-orange-700/50';
+
+        const item = document.createElement('div');
+        item.className = "bg-brand-navy p-2.5 rounded-xl border border-brand-border flex items-center justify-between";
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg border ${bgIcon} flex items-center justify-center shrink-0">
+              <i class="fa-solid ${icon} text-xs"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-white leading-tight">${mov.name}</h4>
+              <p class="text-[10px] text-slate-400 font-mono">${mov.sku} • ${mov.date} • ${mov.notes}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black font-display ${color}">${isIngreso ? '+' : '-'}${mov.qty}</span>
+            <span class="text-[9px] block text-slate-400">${mov.type}</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function filterMovements(type) {
+      currentCategoryFilter = type;
+      document.querySelectorAll('.mov-filter').forEach(btn => {
+        btn.classList.remove('bg-brand-surface', 'border-brand-accent');
+        btn.classList.add('bg-brand-navy', 'border-brand-border');
+      });
+      event.target.classList.add('bg-brand-surface', 'border-brand-accent');
+      renderMovements();
+    }
+
+    function exportKardexCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,ID,SKU,PRODUCTO,TIPO,CANTIDAD,FECHA,OBSERVACIONES\n";
+      movementsHistory.forEach(m => {
+        csvContent += `${m.id},"${m.sku}","${m.name}",${m.type},${m.qty},"${m.date}","${m.notes}"\n`;
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Kardex_MicroWMS_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Archivo Exportado", "Se generó Kardex_MicroWMS.csv con éxito.", "success");
+    }
+
+    function generateRandomSKU() {
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      document.getElementById('genCodeInput').value = `775${randomDigits}`;
+    }
+
+    function createCustomBarcodeItem() {
+      const name = document.getElementById('genNameInput').value.trim();
+      const code = document.getElementById('genCodeInput').value.trim();
+      const category = document.getElementById('genCategorySelect').value;
+      const stock = parseInt(document.getElementById('genStockInput').value) || 12;
+      const minStock = parseInt(document.getElementById('genMinStockInput').value) || 3;
+
+      if (!name || !code) {
+        showToast("Datos incompletos", "Ingresa un nombre y código válido.", "warning");
+        return;
+      }
+
+      const exists = skuDatabase.find(p => p.id === code);
+      if (exists) {
+        showToast("Código ya existe", `El SKU ${code} ya pertenece a ${exists.name}`, "warning");
+        return;
+      }
+
+      const newProduct = {
+        id: code,
+        name: name,
+        category: category,
+        stock: stock,
+        minStock: minStock,
+        location: "Estante VMT-01",
+        price: 2.50
+      };
+
+      skuDatabase.unshift(newProduct);
+      saveState();
+
+      try {
+        JsBarcode("#barcodeCanvas", code, {
+          format: "CODE128",
+          lineColor: "#000000",
+          width: 2,
+          height: 60,
+          displayValue: true,
+          fontSize: 14,
+          font: "monospace"
+        });
+        document.getElementById('previewProdName').textContent = `${name} (${category})`;
+        document.getElementById('barcodePreviewCard').classList.remove('hidden');
+      } catch (err) {
+        console.warn(err);
+      }
+
+      document.getElementById('genNameInput').value = '';
+      generateRandomSKU();
+      playBeepSound('success');
+      showToast("Producto Creado", `${name} agregado al catálogo con código ${code}`, "success");
+      populateSimulatedScannerOptions();
+    }
+
+    function checkAutomationsAndAlerts() {
+      const alertItems = skuDatabase.filter(i => i.stock <= i.minStock);
+      document.getElementById('alertsBadge').textContent = alertItems.length;
+
+      const modalList = document.getElementById('automationModalContent');
+      modalList.innerHTML = '';
+
+      if (alertItems.length === 0) {
+        modalList.innerHTML = `<p class="text-emerald-400 text-center py-2">✔ Todos los inventarios están por encima del stock mínimo.</p>`;
+        return;
+      }
+
+      alertItems.forEach(item => {
+        modalList.innerHTML += `
+          <div class="p-2 bg-brand-surface rounded-lg border border-red-500/30 flex justify-between items-center">
+            <div>
+              <p class="font-bold text-white text-[11px]">${item.name}</p>
+              <p class="text-[10px] text-red-300 font-mono">Stock actual: ${item.stock} u. | Mínimo: ${item.minStock} u.</p>
+            </div>
+            <button onclick="openDirectProductScan('${item.id}'); closeAutomationModal();" class="px-2 py-1 bg-brand-accent text-white text-[10px] font-bold rounded">
+              Reponer
+            </button>
+          </div>
+        `;
+      });
+    }
+
+    function renderAutomationRulesView() {
+      const list = document.getElementById('ruleItemsAlertList');
+      const alertItems = skuDatabase.filter(i => i.stock <= i.minStock);
+      list.innerHTML = '';
+
+      if (alertItems.length === 0) {
+        list.innerHTML = `<p class="text-[10px] text-emerald-400">Sin productos en quiebre en este momento.</p>`;
+        return;
+      }
+
+      alertItems.forEach(item => {
+        list.innerHTML += `
+          <div class="flex items-center justify-between text-[10px] bg-brand-surface px-2 py-1 rounded border border-red-900/40">
+            <span class="text-white truncate max-w-[170px]">${item.name}</span>
+            <span class="text-red-400 font-bold font-mono">${item.stock} / ${item.minStock} u.</span>
+          </div>
+        `;
+      });
+    }
+
+    function sharePurchaseOrderWhatsApp() {
+      const alertItems = skuDatabase.filter(i => i.stock <= i.minStock);
+      if (alertItems.length === 0) {
+        showToast("Sin quiebres", "No hay productos que requieran pedido urgente.", "success");
+        return;
+      }
+
+      let text = "📦 *ORDEN DE COMPRA - BODEGA VMT (MICRO WMS)*%0A";
+      text += `📅 Fecha: ${new Date().toLocaleDateString('es-PE')}%0A%0A`;
+      text += "*Productos por reponer urgentemente:*%0A";
+
+      alertItems.forEach((item, index) => {
+        const sugerido = Math.max(12, (item.minStock * 2) - item.stock);
+        text += `${index + 1}. *${item.name}* (SKU: ${item.id})%0A   - Stock actual: ${item.stock} u.%0A   - Pedido sugerido: *${sugerido} un.*%0A`;
+      });
+
+      text += "%0A_Generado automáticamente mediante Micro WMS Móvil_";
+      const url = `https://api.whatsapp.com/send?text=${text}`;
+      window.open(url, '_blank');
+      showToast("WhatsApp Listo", "Generando orden de pedido con formato.", "success");
+    }
+
+    function syncNowWithCloud() {
+      showToast("Sincronizando...", "Cargando datos con Google Sheets (Simulado).", "success");
+      setTimeout(() => {
+        showToast("Sincronización Completa", "Kardex y Maestro SKU actualizados en la nube.", "success");
+        playBeepSound('success');
+      }, 900);
+    }
+
+    function resetDefaultDatabase() {
+      skuDatabase = [...DEFAULT_SKUS];
+      movementsHistory = [];
+      saveState();
+      renderSKUs();
+      renderMovements();
+      showToast("Datos Restablecidos", "Se cargó el catálogo original de prueba.", "warning");
+    }
+
+    function toggleOnlineStatus() {
+      isOnline = !isOnline;
+      const label = document.getElementById('networkStatusLabel');
+      const btn = document.getElementById('offlineToggleBtn');
+
+      if (isOnline) {
+        label.textContent = "Online";
+        btn.className = "px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1.5 transition";
+        showToast("Modo En Línea", "Conexión restablecida. Sincronización en segundo plano activa.", "success");
+      } else {
+        label.textContent = "Modo Offline";
+        btn.className = "px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1.5 transition";
+        showToast("Modo Offline Activo", "Las transacciones se guardan en el celular.", "warning");
+      }
+    }
+
+    function openAutomationModal() {
+      checkAutomationsAndAlerts();
+      document.getElementById('automationModal').classList.remove('hidden');
+    }
+
+    function closeAutomationModal() {
+      document.getElementById('automationModal').classList.add('hidden');
+    }
+
+    let toastTimer = null;
+    function showToast(title, desc, type = 'success') {
+      const toast = document.getElementById('toastNotification');
+      const box = document.getElementById('toastBox');
+      const icon = document.getElementById('toastIcon');
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastDesc').textContent = desc;
+
+      if (type === 'success') {
+        box.className = "bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-400";
+        icon.className = "fa-solid fa-circle-check text-lg";
+      } else if (type === 'warning') {
+        box.className = "bg-amber-600 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-3 border border-amber-400";
+        icon.className = "fa-solid fa-triangle-exclamation text-lg";
+      }
+
+      toast.classList.remove('-translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('-translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
